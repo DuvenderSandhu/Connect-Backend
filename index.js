@@ -1,12 +1,15 @@
+// Import
 const express= require('express')
 const bcrypt= require('bcryptjs')
 const jwt= require('jsonwebtoken')
-const JWT_SECRET = "Connect_@DSANDHU";
 const mongoose = require('mongoose');
-mongoose.set('strictQuery', false);
+
+// Declearation 
+
+const JWT_SECRET = "Connect_@DSANDHU";
 const connectToMongo=async function(){
-try{
-  let result=await mongoose.connect('mongodb://127.0.0.1:27017/Connect');
+  try{
+    let result=await mongoose.connect('mongodb://127.0.0.1:27017/Connect');
   return "connected"
 }
 catch{
@@ -20,23 +23,29 @@ const UserSchema=new mongoose.Schema({
   info:Object
 })
 const User = mongoose.model('Users', UserSchema)
-
-
+mongoose.set('strictQuery', false);
 const app= express()
 app.use(express.json())
+
+// Routes
+
 app.get('/',(req,res)=>{
   res.send("Welcome")
 })
 
-app.get('/search',async (req,res)=>{
+app.get('/search', (req,res)=>{
+  res.send("Search")
+})
+
+app.get('/search/:query',async (req,res)=>{
 if(req.body.token){
-  if(req.body.query){
+  if(req.params.query){
     let result=connectToMongo()
     if(result.alert){
       res.json(result)
     }
     else{
-      let searched=await User.find({username:req.body.query})
+      let searched=await User.find({username:req.params.query})
       res.json(searched)
     }
   }
@@ -49,32 +58,81 @@ else{
 }
 })
 
-app.post('/request',async (req,res)=>{
-  let user=jwt.decode(req.body.token)
-  let result=connectToMongo()
-  let requested_user=await User.find({username:req.body.query}).select(['-password','-email'])
-  if(user.username!=requested_user[0].username && requested_user[0].info.req.indexOf(user.username)<0 ){
-    requested_user[0].info.req.push(user.username)
-    let response=await User.updateOne({username:requested_user[0].username},{
-      $set:{
-        "info": {
-          "req_no": requested_user[0].info.req_no+1,
-          "friends_no": 0,
-          "req": requested_user[0].info.req,
-          "friends": []
-        },
-      }
-    })
-  let new_user=await User.find({username:req.body.query}).select(['-password','-email'])
+app.post('/request/:username',async (req,res)=>{
+try{
+  let user=jwt.verify(req.body.token,JWT_SECRET)
+  let result=await connectToMongo()
+    let requested_user=await User.find({username:req.params.username}).select(['-password','-email'])
+    if(requested_user.length!=0 && requested_user[0].info.req.indexOf(user.username)<0 && requested_user[0].info.friends.indexOf(user.username)<0 && requested_user[0].username!=user.username){
+      requested_user[0].info.req.push(user.username)
+      await User.updateOne({username:requested_user[0].username},{
+        $set:{
+          info:{
+            req:requested_user[0].info.req,
+            friends:requested_user[0].info.friends
+          }
+        }
 
-res.json({response:typeof(requested_user[0].info.req),new_user})
+          })
+          let new_user=await User.find({username:requested_user[0].username})
+          res.json(new_user)
+      
   }
-  else{
-    res.send(requested_user)
+    else if(requested_user[0].username===user.username || requested_user[0].info.req.indexOf(user.username)>=0|| requested_user[0].info.friends.indexOf(user.username)>=0){
+      res.send(requested_user[0]);
+    }
+  
+    else{
+      res.json({alert: "User not found"})
+    }
+}
+catch{
+    res.json({alert: "Something went wrong"})
   }
 })
 
+app.post('/accept/:username',async (req,res) =>{
+  // TODO: Inserting null into friends and not removing Requests 
+  try{
+    let user=jwt.verify(req.body.token,JWT_SECRET)
+  let result=await connectToMongo()
+  let my_data=await User.find({username:user.username}).select(['-password','-email'])
+  console.log(my_data)
+  if(my_data[0].info.req.indexOf(req.params.username)>=0){
+    let requested_user=await User.find({username:req.params.username}).select(['-password','-email'])
+    requested_user[0].info.req.pop(user.username)
+    requested_user[0].info.friends.push(user.username)
+    my_data[0].info.friends.push(requested_user.username)
+    console.log(requested_user)
+    await User.updateOne({username:req.params.username},{
+      $set:{
+        info:{
+          req:requested_user[0].info.req,
+          friends:requested_user[0].info.friends
+        }
+      }
+    })
+    await User.updateOne({username:user.username},{
+      $set:{
+        info:{
+          req:my_data[0].info.req,
+          friends:my_data[0].info.friends
+        }
+      }
+    })
+    let new_user=await User.find({username:user.username}).select(['-password','-email'])
+    res.json(new_user)
+  }
+  else{
+    res.json({alert: "Invalid URL"})
 
+  }
+  }
+  catch{
+    res.json({alert: "Something went wrong"})
+  }
+
+})
 
 app.get("/signup", async (req, res) => {
  res.send("SIgnup Get")
