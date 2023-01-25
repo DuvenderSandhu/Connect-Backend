@@ -33,6 +33,12 @@ app.get('/',(req,res)=>{
   res.send("Welcome")
 })
 
+app.get('/my-profile',async(req,res)=>{
+  let user= jwt.verify(req.params.token,JWT_SECRET)
+  let my_data= await User.find({username:user.username})
+  res.send(my_data)
+})
+
 app.get('/search', (req,res)=>{
   res.send("Search")
 })
@@ -98,13 +104,13 @@ app.post('/accept/:username',async (req,res) =>{
   let result=await connectToMongo()
   let my_data=await User.find({username:user.username}).select(['-password','-email'])
   console.log(my_data)
-  if(my_data[0].info.req.indexOf(req.params.username)>=0){
+  if(my_data[0].info.req.indexOf(req.params.username)>=0 && my_data[0].info.friends.indexOf(req.params.username)<0){
     let requested_user=await User.find({username:req.params.username}).select(['-password','-email'])
-    requested_user[0].info.req.pop(user.username)
+    my_data[0].info.req.pop(user.username)
     requested_user[0].info.friends.push(user.username)
-    my_data[0].info.friends.push(requested_user.username)
+    my_data[0].info.friends.push(requested_user[0].username)
     console.log(requested_user)
-    await User.updateOne({username:req.params.username},{
+    await User.updateOne({username:requested_user[0].username},{
       $set:{
         info:{
           req:requested_user[0].info.req,
