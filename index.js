@@ -34,9 +34,15 @@ app.get('/',(req,res)=>{
 })
 
 app.get('/my-profile',async(req,res)=>{
-  let user= jwt.verify(req.params.token,JWT_SECRET)
-  let my_data= await User.find({username:user.username})
+  let user= jwt.verify(req.body.token,JWT_SECRET)
+  if(user){
+    let result= connectToMongo()
+    let my_data= await User.find({username:user.username})
   res.send(my_data)
+  }
+  else{
+    res.json({alert:"Invalid URL"})
+  }
 })
 
 app.get('/search', (req,res)=>{
@@ -69,7 +75,8 @@ try{
   let user=jwt.verify(req.body.token,JWT_SECRET)
   let result=await connectToMongo()
     let requested_user=await User.find({username:req.params.username}).select(['-password','-email'])
-    if(requested_user.length!=0 && requested_user[0].info.req.indexOf(user.username)<0 && requested_user[0].info.friends.indexOf(user.username)<0 && requested_user[0].username!=user.username){
+    let my_data=await User.find({username:user.username}).select(['-password','-email'])
+    if(requested_user.length!=0 && requested_user[0].info.req.indexOf(user.username)<0 && my_data[0].info.req.indexOf(requested_user[0].username)<0 && requested_user[0].info.friends.indexOf(user.username)<0 && requested_user[0].username!=user.username){
       requested_user[0].info.req.push(user.username)
       await User.updateOne({username:requested_user[0].username},{
         $set:{
@@ -84,7 +91,7 @@ try{
           res.json(new_user)
       
   }
-    else if(requested_user[0].username===user.username || requested_user[0].info.req.indexOf(user.username)>=0|| requested_user[0].info.friends.indexOf(user.username)>=0){
+    else if(requested_user[0].username===user.username ||my_data[0].info.req.indexOf(requested_user[0].username)>=0 || requested_user[0].info.req.indexOf(user.username)>=0|| requested_user[0].info.friends.indexOf(user.username)>=0){
       res.send(requested_user[0]);
     }
   
@@ -103,13 +110,11 @@ app.post('/accept/:username',async (req,res) =>{
     let user=jwt.verify(req.body.token,JWT_SECRET)
   let result=await connectToMongo()
   let my_data=await User.find({username:user.username}).select(['-password','-email'])
-  console.log(my_data)
   if(my_data[0].info.req.indexOf(req.params.username)>=0 && my_data[0].info.friends.indexOf(req.params.username)<0){
     let requested_user=await User.find({username:req.params.username}).select(['-password','-email'])
     my_data[0].info.req.pop(user.username)
     requested_user[0].info.friends.push(user.username)
     my_data[0].info.friends.push(requested_user[0].username)
-    console.log(requested_user)
     await User.updateOne({username:requested_user[0].username},{
       $set:{
         info:{
