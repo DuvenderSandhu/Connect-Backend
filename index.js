@@ -183,13 +183,32 @@ app.post("/chat/:username", async (req, res) => {
       if (my_data[0].info.friends.length === 0) {
         res.send("You Have No Friends");
       } else if (my_data[0].info.friends.indexOf(req.params.username) >= 0) {
-        let chat = await Msg.find({
-          between: [
-            user.username.toLowerCase(),
-            req.params.username.toLowerCase(),
-          ],
-        });
-        if (chat.length === 0) {
+        let chat = await Msg.find({$or:[{between: [
+          user.username.toLowerCase(),
+          req.params.username.toLowerCase(),
+        ]},{between: [
+          req.params.username.toLowerCase(),
+          user.username.toLowerCase(),
+        ],}]});
+        if (req.body.message) {
+          let obj= await Msg.create({
+            between: [
+              user.username.toLowerCase(),
+              req.params.username.toLowerCase(),
+            ],
+            msg: req.body.message,
+          });
+          let chat = await Msg.find({
+            between: [
+              user.username.toLowerCase(),
+              req.params.username.toLowerCase(),
+            ],
+
+          });
+          res.send(chat)
+        }
+      
+        else if (chat.length === 0) {
           if (req.body.message) {
             let obj= await Msg.create({
               between: [
@@ -198,7 +217,6 @@ app.post("/chat/:username", async (req, res) => {
               ],
               msg: req.body.message,
             });
-            console.log(obj)
             let chat = await Msg.find({
               between: [
                 user.username.toLowerCase(),
@@ -209,7 +227,7 @@ app.post("/chat/:username", async (req, res) => {
             res.send(chat)
           } else {
             res.json({ alert: "No Chat Found" });
-            res.send(chat);
+            // res.send(chat);
           }
         } else {
           res.json(chat);
