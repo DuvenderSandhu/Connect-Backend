@@ -1,0 +1,25 @@
+*{
+    margin: 0;
+    padding: 0;
+}
+.messagebox{
+    border: 2px solid black;
+    width: 70%;
+    height: 50vh;
+    margin: auto;
+    overflow: auto;
+}
+.innerbox{
+    background-color: rgba(0, 0, 0, 0.2);
+    width:  500px;
+    border-radius: 5px;
+    min-height: 20px;
+    margin: 0.5rem;
+    padding: 5px;
+}
+.right{
+float:right;
+}
+.left{
+float:left;
+}
